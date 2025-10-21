@@ -1,29 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Navigation, Loader2 } from "lucide-react";
+import { MapPin, Navigation, Loader2, Star, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Hospital {
   name: string;
-  specialist: string;
-  phone: string;
-  distance: string;
   address: string;
+  distance: string;
+  rating: number | null;
+  userRatingsTotal: number;
   lat: number;
   lng: number;
+  placeId: string;
+  openNow?: boolean;
 }
 
 const HospitalSuggestions = () => {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    getUserLocation();
-  }, []);
-
-  const getUserLocation = () => {
+  const handleLocationPermission = () => {
+    setShowPermissionDialog(false);
+    setLoading(true);
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -35,207 +51,180 @@ const HospitalSuggestions = () => {
         },
         (error) => {
           console.error("Error getting location:", error);
-          loadMockHospitals();
+          setError("Unable to access your location. Please enable location services.");
+          setLoading(false);
+          toast({
+            title: "Location Access Denied",
+            description: "Please enable location services to find nearby hospitals.",
+            variant: "destructive",
+          });
         }
       );
     } else {
-      loadMockHospitals();
+      setError("Geolocation is not supported by your browser.");
+      setLoading(false);
+      toast({
+        title: "Location Not Supported",
+        description: "Your browser doesn't support location services.",
+        variant: "destructive",
+      });
     }
   };
 
   const loadNearbyHospitals = async (lat: number, lng: number) => {
     try {
-      // Overpass API query for hospitals within 50km
-      const overpassQuery = `
-        [out:json][timeout:25];
-        (
-          node["amenity"="hospital"](around:50000,${lat},${lng});
-          way["amenity"="hospital"](around:50000,${lat},${lng});
-          node["amenity"="clinic"]["healthcare"="hospital"](around:50000,${lat},${lng});
-        );
-        out body;
-        >;
-        out skel qt;
-      `;
-
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: overpassQuery,
+      const { data, error } = await supabase.functions.invoke('nearby-hospitals', {
+        body: { latitude: lat, longitude: lng },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch hospitals");
+      if (error) throw error;
+
+      if (data.hospitals && data.hospitals.length > 0) {
+        setHospitals(data.hospitals);
+      } else {
+        setError("No hospitals found nearby. Please try again later.");
       }
-
-      const data = await response.json();
-      
-      // Calculate distances and format hospitals
-      const hospitalsWithDistance = data.elements
-        .filter((element: any) => element.tags?.name) // Only include hospitals with names
-        .map((element: any) => {
-          const hospitalLat = element.lat || element.center?.lat;
-          const hospitalLng = element.lon || element.center?.lon;
-          
-          if (!hospitalLat || !hospitalLng) return null;
-
-          // Calculate distance using Haversine formula
-          const R = 6371; // Earth's radius in km
-          const dLat = (hospitalLat - lat) * Math.PI / 180;
-          const dLon = (hospitalLng - lng) * Math.PI / 180;
-          const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat * Math.PI / 180) * Math.cos(hospitalLat * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-          const distance = R * c;
-
-          return {
-            name: element.tags.name,
-            specialist: element.tags["healthcare:speciality"] || "General Hospital",
-            phone: element.tags.phone || element.tags["contact:phone"] || "Contact hospital for details",
-            distance: `${distance.toFixed(1)} km`,
-            address: [
-              element.tags["addr:street"],
-              element.tags["addr:housenumber"],
-              element.tags["addr:city"],
-              element.tags["addr:postcode"]
-            ].filter(Boolean).join(", ") || "Address not available",
-            lat: hospitalLat,
-            lng: hospitalLng,
-            distanceValue: distance,
-          };
-        })
-        .filter((hospital: any) => hospital !== null)
-        .sort((a: any, b: any) => a.distanceValue - b.distanceValue)
-        .slice(0, 5); // Get top 5 closest
-
-      setHospitals(hospitalsWithDistance);
     } catch (error) {
       console.error("Error fetching hospitals:", error);
-      loadMockHospitals();
+      setError("Failed to load nearby hospitals. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to load nearby hospitals. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMockHospitals = () => {
-    setTimeout(() => {
-      setHospitals([
-        {
-          name: "City General Hospital",
-          specialist: "Dr. Sarah Johnson",
-          phone: "+1 (555) 123-4567",
-          distance: "N/A",
-          address: "123 Medical Center Dr, Suite 100",
-          lat: 0,
-          lng: 0,
-        },
-        {
-          name: "St. Mary's Medical Center",
-          specialist: "Dr. Michael Chen",
-          phone: "+1 (555) 234-5678",
-          distance: "N/A",
-          address: "456 Healthcare Blvd, Floor 3",
-          lat: 0,
-          lng: 0,
-        },
-        {
-          name: "University Hospital",
-          specialist: "Dr. Emily Rodriguez",
-          phone: "+1 (555) 345-6789",
-          distance: "N/A",
-          address: "789 University Ave, Building A",
-          lat: 0,
-          lng: 0,
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
-  };
-
-  const openDirections = (hospital: Hospital) => {
+  const openMapView = (hospital: Hospital) => {
     if (userLocation) {
       const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${hospital.lat},${hospital.lng}`;
       window.open(url, "_blank");
     } else {
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hospital.address)}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hospital.name + ' ' + hospital.address)}`;
       window.open(url, "_blank");
     }
   };
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <MapPin className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <CardTitle>Nearby Specialists</CardTitle>
-            <CardDescription>
-              Top 5 hospitals with chest cancer specialists within 50km
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {hospitals.map((hospital, index) => (
-              <Card key={index} className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-lg">{hospital.name}</h3>
-                          <p className="text-sm text-muted-foreground">{hospital.address}</p>
-                        </div>
-                        <Badge variant="secondary">{hospital.distance}</Badge>
-                      </div>
-                      
-                      <div className="flex flex-col gap-1 text-sm">
-                        <p className="flex items-center gap-2">
-                          <span className="font-medium">Specialist:</span>
-                          {hospital.specialist}
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          {hospital.phone}
-                        </p>
-                      </div>
+    <>
+      <AlertDialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Location Access Required
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Allow X-Ray AI to access your location to find nearby chest cancer specialists?</p>
+              <p className="text-xs text-muted-foreground">
+                We'll use your location to find the 5 closest hospitals within 50km of you.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowPermissionDialog(false)}>
+              Not Now
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleLocationPermission}>
+              Allow Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => openDirections(hospital)}
-                        >
-                          <Navigation className="h-3 w-3 mr-1" />
-                          Get Directions
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(`tel:${hospital.phone}`)}
-                        >
-                          <Phone className="h-3 w-3 mr-1" />
-                          Call Now
-                        </Button>
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <MapPin className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Nearby Specialists</CardTitle>
+              <CardDescription>
+                Top 5 hospitals with chest cancer specialists within 50km
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Finding nearby hospitals...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <AlertCircle className="h-12 w-12 text-destructive" />
+              <p className="text-sm text-center text-muted-foreground">{error}</p>
+              <Button onClick={handleLocationPermission} variant="outline" size="sm">
+                Try Again
+              </Button>
+            </div>
+          ) : hospitals.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <MapPin className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm text-center text-muted-foreground">
+                Click "Allow Access" to find nearby hospitals
+              </p>
+              <Button onClick={handleLocationPermission} variant="default" size="sm">
+                <MapPin className="h-4 w-4 mr-2" />
+                Find Hospitals
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {hospitals.map((hospital, index) => (
+                <Card key={hospital.placeId || index} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{hospital.name}</h3>
+                            <p className="text-sm text-muted-foreground">{hospital.address}</p>
+                            {hospital.rating && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                  <span className="text-sm font-medium">{hospital.rating.toFixed(1)}</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  ({hospital.userRatingsTotal} reviews)
+                                </span>
+                                {hospital.openNow !== undefined && (
+                                  <Badge variant={hospital.openNow ? "default" : "secondary"} className="text-xs">
+                                    {hospital.openNow ? "Open Now" : "Closed"}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <Badge variant="secondary">{hospital.distance}</Badge>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => openMapView(hospital)}
+                            className="flex-1"
+                          >
+                            <Navigation className="h-3 w-3 mr-1" />
+                            View on Map
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 };
 
