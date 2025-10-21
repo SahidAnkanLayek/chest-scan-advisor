@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Loader2, Star, AlertCircle } from "lucide-react";
@@ -33,16 +33,25 @@ const HospitalSuggestions = () => {
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showPermissionDialog, setShowPermissionDialog] = useState(true);
+  const [permissionRequested, setPermissionRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Automatically show permission dialog when component mounts
+  useEffect(() => {
+    console.log("HospitalSuggestions component mounted - permission dialog should show");
+  }, []);
+
   const handleLocationPermission = () => {
+    console.log("Permission granted - requesting location...");
     setShowPermissionDialog(false);
+    setPermissionRequested(true);
     setLoading(true);
     
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log("Location obtained:", position.coords.latitude, position.coords.longitude);
           setUserLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -71,16 +80,32 @@ const HospitalSuggestions = () => {
     }
   };
 
+  const handlePermissionDenied = () => {
+    console.log("Permission denied by user");
+    setShowPermissionDialog(false);
+    setPermissionRequested(true);
+  };
+
   const loadNearbyHospitals = async (lat: number, lng: number) => {
     try {
+      console.log("Fetching nearby hospitals...");
       const { data, error } = await supabase.functions.invoke('nearby-hospitals', {
         body: { latitude: lat, longitude: lng },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw error;
+      }
+
+      console.log("Hospitals data received:", data);
 
       if (data.hospitals && data.hospitals.length > 0) {
         setHospitals(data.hospitals);
+        toast({
+          title: "Hospitals Found",
+          description: `Found ${data.hospitals.length} nearby hospitals`,
+        });
       } else {
         setError("No hospitals found nearby. Please try again later.");
       }
@@ -124,7 +149,7 @@ const HospitalSuggestions = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowPermissionDialog(false)}>
+            <AlertDialogCancel onClick={handlePermissionDenied}>
               Not Now
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleLocationPermission}>
@@ -162,15 +187,26 @@ const HospitalSuggestions = () => {
                 Try Again
               </Button>
             </div>
-          ) : hospitals.length === 0 ? (
+          ) : hospitals.length === 0 && !permissionRequested ? (
             <div className="flex flex-col items-center justify-center py-8 space-y-3">
               <MapPin className="h-12 w-12 text-muted-foreground" />
               <p className="text-sm text-center text-muted-foreground">
-                Click "Allow Access" to find nearby hospitals
+                Please allow location access to find nearby hospitals
               </p>
-              <Button onClick={handleLocationPermission} variant="default" size="sm">
+              <Button onClick={() => setShowPermissionDialog(true)} variant="default" size="sm">
                 <MapPin className="h-4 w-4 mr-2" />
-                Find Hospitals
+                Grant Location Access
+              </Button>
+            </div>
+          ) : hospitals.length === 0 && permissionRequested ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <MapPin className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm text-center text-muted-foreground">
+                Location access denied. Click below to try again.
+              </p>
+              <Button onClick={() => setShowPermissionDialog(true)} variant="default" size="sm">
+                <MapPin className="h-4 w-4 mr-2" />
+                Request Location Again
               </Button>
             </div>
           ) : (
