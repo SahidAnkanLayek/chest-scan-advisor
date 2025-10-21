@@ -124,6 +124,10 @@ const Dashboard = () => {
     fetchStats();
   };
 
+  const handleNewDiagnosis = () => {
+    setLatestDiagnosis(null);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -205,7 +209,11 @@ const Dashboard = () => {
               onDiagnosisComplete={handleDiagnosisComplete}
             />
           ) : (
-            <DiagnosisResults diagnosis={latestDiagnosis} patientInfo={patientInfo} />
+            <DiagnosisResults 
+              diagnosis={latestDiagnosis} 
+              patientInfo={patientInfo} 
+              onNewDiagnosis={handleNewDiagnosis}
+            />
           )}
         </div>
       )}

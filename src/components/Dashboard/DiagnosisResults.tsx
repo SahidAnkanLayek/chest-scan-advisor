@@ -20,9 +20,10 @@ import HospitalSuggestions from "./HospitalSuggestions";
 interface DiagnosisResultsProps {
   diagnosis: any;
   patientInfo: any;
+  onNewDiagnosis: () => void;
 }
 
-const DiagnosisResults = ({ diagnosis, patientInfo }: DiagnosisResultsProps) => {
+const DiagnosisResults = ({ diagnosis, patientInfo, onNewDiagnosis }: DiagnosisResultsProps) => {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
@@ -137,7 +138,7 @@ const DiagnosisResults = ({ diagnosis, patientInfo }: DiagnosisResultsProps) => 
   };
 
   const handleNewDiagnosis = () => {
-    window.location.reload();
+    onNewDiagnosis();
   };
 
   return (
