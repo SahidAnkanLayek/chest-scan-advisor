@@ -34,10 +34,7 @@ const Navbar = ({ user, onLogout }: NavbarProps) => {
       <DropdownMenu>
         <DropdownMenuTrigger className="focus:outline-none">
           <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all cursor-pointer">
-            <AvatarImage 
-              src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
-              alt={getUserName()} 
-            />
+            <AvatarImage src={user.user_metadata?.avatar_url} alt={getUserName()} />
             <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
               {getInitials(user.email || "")}
             </AvatarFallback>
