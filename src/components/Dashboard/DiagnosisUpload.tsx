@@ -62,111 +62,90 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
     }
   };
 
-  const handleUpload = async (retryCount = 0) => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
 
     setUploading(true);
     setProgress(0);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload to storage
-      const fileName = `${user.id}/${Date.now()}_${selectedFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("xray-images")
-        .upload(fileName, selectedFile);
-
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("xray-images")
-        .getPublicUrl(fileName);
-
-      setUploading(false);
-      setAnalyzing(true);
-
-      // Show timeout warning if diagnosis takes more than 20 seconds
-      const timeoutId = setTimeout(() => {
-        toast({
-          title: "Diagnosis still running",
-          description: "This may take up to a minute. We'll notify you when done.",
-        });
-      }, 20000);
-
-      // Simulate AI analysis
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      clearTimeout(timeoutId);
-
-      const aiResult = mockAIPrediction();
-
-      // Save diagnosis
-      const { data: diagnosisData, error: diagnosisError } = await supabase
-        .from("diagnoses")
-        .insert({
-          user_id: user.id,
-          patient_info_id: patientInfoId,
-          image_url: publicUrl,
-          predictions: aiResult.predictions,
-          top_prediction: aiResult.topPrediction,
-          confidence_score: parseFloat(aiResult.confidenceScore),
-          has_cancer: aiResult.hasCancer,
-        })
-        .select()
-        .single();
-
-      setAnalyzing(false);
-
-      if (diagnosisError) {
-        throw diagnosisError;
-      }
-
-      toast({
-        title: "Analysis complete",
-        description: "Chest X-ray analyzed successfully",
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return prev;
+        }
+        return prev + 10;
       });
+    }, 200);
 
-      onDiagnosisComplete(diagnosisData);
-    } catch (error: any) {
-      console.error("Upload error:", error);
+    // Upload to storage
+    const fileName = `${user.id}/${Date.now()}_${selectedFile.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("xray-images")
+      .upload(fileName, selectedFile);
+
+    clearInterval(progressInterval);
+    setProgress(100);
+
+    if (uploadError) {
+      toast({
+        title: "Upload failed",
+        description: uploadError.message,
+        variant: "destructive",
+      });
       setUploading(false);
-      setAnalyzing(false);
-
-      // Retry logic - up to 2 retries
-      if (retryCount < 2) {
-        toast({
-          title: "Retrying...",
-          description: `Upload failed. Retrying (${retryCount + 1}/2)`,
-        });
-        setTimeout(() => handleUpload(retryCount + 1), 1000);
-      } else {
-        toast({
-          title: "Upload failed",
-          description: error.message || "Failed to upload X-ray. Please try again or report the issue if this persists.",
-          variant: "destructive",
-        });
-      }
+      return;
     }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from("xray-images")
+      .getPublicUrl(fileName);
+
+    setUploading(false);
+    setAnalyzing(true);
+
+    // Simulate AI analysis
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const aiResult = mockAIPrediction();
+
+    // Save diagnosis
+    const { data: diagnosisData, error: diagnosisError } = await supabase
+      .from("diagnoses")
+      .insert({
+        user_id: user.id,
+        patient_info_id: patientInfoId,
+        image_url: publicUrl,
+        predictions: aiResult.predictions,
+        top_prediction: aiResult.topPrediction,
+        confidence_score: parseFloat(aiResult.confidenceScore),
+        has_cancer: aiResult.hasCancer,
+      })
+      .select()
+      .single();
+
+    setAnalyzing(false);
+
+    if (diagnosisError) {
+      toast({
+        title: "Error saving diagnosis",
+        description: diagnosisError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Analysis complete",
+      description: "Chest X-ray analyzed successfully",
+    });
+
+    onDiagnosisComplete(diagnosisData);
   };
 
   return (
@@ -241,7 +220,7 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
         )}
 
         <Button
-          onClick={() => handleUpload(0)}
+          onClick={handleUpload}
           disabled={!selectedFile || uploading || analyzing}
           className="w-full"
           size="lg"
