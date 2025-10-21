@@ -43,59 +43,79 @@ const HospitalSuggestions = () => {
     }
   };
 
-  const loadNearbyHospitals = (lat: number, lng: number) => {
-    // In production, this would call a real API like Google Places
-    // For now, using mock data with calculated distances
-    setTimeout(() => {
-      setHospitals([
-        {
-          name: "City General Hospital",
-          specialist: "Dr. Sarah Johnson",
-          phone: "+1 (555) 123-4567",
-          distance: "2.3 km",
-          address: "123 Medical Center Dr, Suite 100",
-          lat: lat + 0.02,
-          lng: lng + 0.01,
-        },
-        {
-          name: "St. Mary's Medical Center",
-          specialist: "Dr. Michael Chen",
-          phone: "+1 (555) 234-5678",
-          distance: "4.7 km",
-          address: "456 Healthcare Blvd, Floor 3",
-          lat: lat + 0.03,
-          lng: lng + 0.02,
-        },
-        {
-          name: "University Hospital",
-          specialist: "Dr. Emily Rodriguez",
-          phone: "+1 (555) 345-6789",
-          distance: "6.1 km",
-          address: "789 University Ave, Building A",
-          lat: lat + 0.04,
-          lng: lng + 0.03,
-        },
-        {
-          name: "Metropolitan Health Clinic",
-          specialist: "Dr. James Wilson",
-          phone: "+1 (555) 456-7890",
-          distance: "8.5 km",
-          address: "321 Metro Plaza, Suite 200",
-          lat: lat + 0.05,
-          lng: lng + 0.04,
-        },
-        {
-          name: "Riverside Medical Group",
-          specialist: "Dr. Patricia Lee",
-          phone: "+1 (555) 567-8901",
-          distance: "12.3 km",
-          address: "654 Riverside Dr, Unit 5",
-          lat: lat + 0.08,
-          lng: lng + 0.06,
-        },
-      ]);
+  const loadNearbyHospitals = async (lat: number, lng: number) => {
+    try {
+      // Overpass API query for hospitals within 50km
+      const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          node["amenity"="hospital"](around:50000,${lat},${lng});
+          way["amenity"="hospital"](around:50000,${lat},${lng});
+          node["amenity"="clinic"]["healthcare"="hospital"](around:50000,${lat},${lng});
+        );
+        out body;
+        >;
+        out skel qt;
+      `;
+
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: overpassQuery,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch hospitals");
+      }
+
+      const data = await response.json();
+      
+      // Calculate distances and format hospitals
+      const hospitalsWithDistance = data.elements
+        .filter((element: any) => element.tags?.name) // Only include hospitals with names
+        .map((element: any) => {
+          const hospitalLat = element.lat || element.center?.lat;
+          const hospitalLng = element.lon || element.center?.lon;
+          
+          if (!hospitalLat || !hospitalLng) return null;
+
+          // Calculate distance using Haversine formula
+          const R = 6371; // Earth's radius in km
+          const dLat = (hospitalLat - lat) * Math.PI / 180;
+          const dLon = (hospitalLng - lng) * Math.PI / 180;
+          const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat * Math.PI / 180) * Math.cos(hospitalLat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+
+          return {
+            name: element.tags.name,
+            specialist: element.tags["healthcare:speciality"] || "General Hospital",
+            phone: element.tags.phone || element.tags["contact:phone"] || "Contact hospital for details",
+            distance: `${distance.toFixed(1)} km`,
+            address: [
+              element.tags["addr:street"],
+              element.tags["addr:housenumber"],
+              element.tags["addr:city"],
+              element.tags["addr:postcode"]
+            ].filter(Boolean).join(", ") || "Address not available",
+            lat: hospitalLat,
+            lng: hospitalLng,
+            distanceValue: distance,
+          };
+        })
+        .filter((hospital: any) => hospital !== null)
+        .sort((a: any, b: any) => a.distanceValue - b.distanceValue)
+        .slice(0, 5); // Get top 5 closest
+
+      setHospitals(hospitalsWithDistance);
+    } catch (error) {
+      console.error("Error fetching hospitals:", error);
+      loadMockHospitals();
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const loadMockHospitals = () => {
