@@ -30,29 +30,58 @@ serve(async (req) => {
       );
     }
 
-    // Use Google Places API Nearby Search
-    const radius = 50000; // 50km
-    const type = 'hospital';
-    const keyword = 'chest cancer specialist oncology';
+    // Use new Google Places API (Text Search) with larger radius
+    const radius = 200000; // 200km for district/state level coverage
+    const query = 'hospital chest cancer specialist oncology';
 
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&keyword=${keyword}&key=${apiKey}`;
+    // New Places API endpoint
+    const url = `https://places.googleapis.com/v1/places:searchText`;
 
-    console.log('Fetching hospitals from Google Places API...');
-    const response = await fetch(url);
+    console.log('Fetching hospitals from Google Places API (New)...');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.currentOpeningHours'
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        locationBias: {
+          circle: {
+            center: {
+              latitude: latitude,
+              longitude: longitude
+            },
+            radius: radius
+          }
+        },
+        maxResultCount: 20 // Get more results to ensure we have 5 good ones
+      })
+    });
+
     const data = await response.json();
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', data.status, data.error_message);
+    if (!response.ok) {
+      console.error('Google Places API error:', response.status, data);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch hospitals', details: data.error_message }),
+        JSON.stringify({ error: 'Failed to fetch hospitals', details: data.error?.message || 'Unknown error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    if (!data.places || data.places.length === 0) {
+      console.log('No hospitals found');
+      return new Response(
+        JSON.stringify({ hospitals: [] }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Calculate distance and format results
-    const hospitals = data.results.slice(0, 5).map((place: any) => {
-      const hospitalLat = place.geometry.location.lat;
-      const hospitalLng = place.geometry.location.lng;
+    const hospitals = data.places.slice(0, 5).map((place: any) => {
+      const hospitalLat = place.location.latitude;
+      const hospitalLng = place.location.longitude;
 
       // Calculate distance using Haversine formula
       const R = 6371; // Earth's radius in km
@@ -66,16 +95,16 @@ serve(async (req) => {
       const distance = R * c;
 
       return {
-        name: place.name,
-        address: place.vicinity || 'Address not available',
+        name: place.displayName?.text || 'Hospital',
+        address: place.formattedAddress || 'Address not available',
         rating: place.rating || null,
-        userRatingsTotal: place.user_ratings_total || 0,
+        userRatingsTotal: place.userRatingCount || 0,
         distance: `${distance.toFixed(1)} km`,
         distanceValue: distance,
         lat: hospitalLat,
         lng: hospitalLng,
-        placeId: place.place_id,
-        openNow: place.opening_hours?.open_now,
+        placeId: place.id,
+        openNow: place.currentOpeningHours?.openNow,
       };
     });
 

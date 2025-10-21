@@ -168,7 +168,7 @@ const HospitalSuggestions = () => {
             <div>
               <CardTitle>Nearby Specialists</CardTitle>
               <CardDescription>
-                Top 5 hospitals with chest cancer specialists within 50km
+                Top 5 hospitals with chest cancer specialists within 200km
               </CardDescription>
             </div>
           </div>
