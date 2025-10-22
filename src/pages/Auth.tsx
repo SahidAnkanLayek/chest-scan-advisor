@@ -27,9 +27,18 @@ const Auth = () => {
     });
 
     if (error) {
+      let errorMessage = error.message;
+      
+      // Provide more helpful error messages
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Invalid email or password. If you just signed up, please check your email for a confirmation link or try signing up again.";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Please confirm your email address before logging in. Check your inbox for the confirmation link.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } else {
