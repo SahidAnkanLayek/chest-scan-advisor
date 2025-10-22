@@ -1,31 +1,61 @@
-import { useEffect } from "react";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
-import { useUser, useClerk } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
+import { useNavigate, Outlet } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
-import EmailVerificationNotice from "../Auth/EmailVerificationNotice";
+import { useToast } from "@/hooks/use-toast";
 
 const DashboardLayout = () => {
-  const { isLoaded, isSignedIn } = useUser();
-  const { signOut } = useClerk();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      // Store the intended destination for redirect after login
-      const destination = location.pathname + location.search;
-      sessionStorage.setItem('clerk_redirect_url', destination);
-      navigate("/auth");
-    }
-  }, [isLoaded, isSignedIn, navigate, location]);
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        navigate("/auth");
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleLogout = async () => {
-    await signOut();
-    navigate("/auth");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Logged out successfully",
+      });
+      navigate("/auth");
+    }
   };
 
-  if (!isLoaded) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -36,7 +66,7 @@ const DashboardLayout = () => {
     );
   }
 
-  if (!isSignedIn) {
+  if (!user) {
     return null;
   }
 
@@ -44,8 +74,7 @@ const DashboardLayout = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar />
-        <EmailVerificationNotice />
+        <Navbar user={user} onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
