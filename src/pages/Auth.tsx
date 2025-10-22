@@ -1,23 +1,17 @@
-import { SignIn, useClerk, useUser } from "@clerk/clerk-react";
+import { SignInButton, SignUpButton, SignedIn, SignedOut, useUser } from "@clerk/clerk-react";
 import { Activity } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Auth = () => {
-  const { loaded } = useClerk();
   const { isSignedIn } = useUser();
   const navigate = useNavigate();
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    if (loaded) {
-      setIsReady(true);
-    }
-  }, [loaded]);
 
   useEffect(() => {
     // Redirect authenticated users to dashboard or saved destination
-    if (isSignedIn && loaded) {
+    if (isSignedIn) {
       const savedRedirect = sessionStorage.getItem('clerk_redirect_url');
       if (savedRedirect) {
         sessionStorage.removeItem('clerk_redirect_url');
@@ -26,18 +20,7 @@ const Auth = () => {
         navigate("/dashboard");
       }
     }
-  }, [isSignedIn, loaded, navigate]);
-
-  if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading authentication...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [isSignedIn, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
@@ -53,15 +36,50 @@ const Auth = () => {
             Advanced chest X-ray analysis powered by AI
           </p>
         </div>
-        <SignIn 
-          signUpUrl="/sign-up"
-          appearance={{
-            elements: {
-              rootBox: "mx-auto",
-              card: "shadow-lg"
-            }
-          }}
-        />
+
+        <SignedOut>
+          <Card>
+            <CardHeader>
+              <CardTitle>Welcome Back</CardTitle>
+              <CardDescription>
+                Sign in to access your X-ray diagnostic tools
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                <Button className="w-full" size="lg">
+                  Sign In
+                </Button>
+              </SignInButton>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Don't have an account?
+                  </span>
+                </div>
+              </div>
+              <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
+                <Button variant="outline" className="w-full" size="lg">
+                  Create Account
+                </Button>
+              </SignUpButton>
+            </CardContent>
+          </Card>
+        </SignedOut>
+
+        <SignedIn>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Redirecting to dashboard...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </SignedIn>
       </div>
     </div>
   );

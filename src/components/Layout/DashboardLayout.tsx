@@ -4,14 +4,12 @@ import { useUser, useClerk } from "@clerk/clerk-react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import EmailVerificationNotice from "../Auth/EmailVerificationNotice";
-import { useToast } from "@/hooks/use-toast";
 
 const DashboardLayout = () => {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -23,20 +21,8 @@ const DashboardLayout = () => {
   }, [isLoaded, isSignedIn, navigate, location]);
 
   const handleLogout = async () => {
-    try {
-      await signOut();
-      toast({
-        title: "Success",
-        description: "Logged out successfully",
-      });
-      navigate("/auth");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to log out",
-        variant: "destructive",
-      });
-    }
+    await signOut();
+    navigate("/auth");
   };
 
   if (!isLoaded) {
@@ -50,7 +36,7 @@ const DashboardLayout = () => {
     );
   }
 
-  if (!isSignedIn || !user) {
+  if (!isSignedIn) {
     return null;
   }
 
@@ -58,7 +44,7 @@ const DashboardLayout = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar user={user} onLogout={handleLogout} />
+        <Navbar />
         <EmailVerificationNotice />
         <main className="flex-1 overflow-y-auto">
           <Outlet />
