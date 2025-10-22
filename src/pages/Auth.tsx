@@ -1,9 +1,12 @@
-import { SignIn, useClerk } from "@clerk/clerk-react";
+import { SignIn, useClerk, useUser } from "@clerk/clerk-react";
 import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
   const { loaded } = useClerk();
+  const { isSignedIn } = useUser();
+  const navigate = useNavigate();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -11,6 +14,19 @@ const Auth = () => {
       setIsReady(true);
     }
   }, [loaded]);
+
+  useEffect(() => {
+    // Redirect authenticated users to dashboard or saved destination
+    if (isSignedIn && loaded) {
+      const savedRedirect = sessionStorage.getItem('clerk_redirect_url');
+      if (savedRedirect) {
+        sessionStorage.removeItem('clerk_redirect_url');
+        navigate(savedRedirect);
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [isSignedIn, loaded, navigate]);
 
   if (!isReady) {
     return (
@@ -38,7 +54,6 @@ const Auth = () => {
           </p>
         </div>
         <SignIn 
-          afterSignInUrl="/dashboard"
           signUpUrl="/sign-up"
           appearance={{
             elements: {

@@ -1,9 +1,12 @@
-import { SignUp, useClerk } from "@clerk/clerk-react";
+import { SignUp, useClerk, useUser } from "@clerk/clerk-react";
 import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const SignUpPage = () => {
   const { loaded } = useClerk();
+  const { isSignedIn } = useUser();
+  const navigate = useNavigate();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -11,6 +14,13 @@ const SignUpPage = () => {
       setIsReady(true);
     }
   }, [loaded]);
+
+  useEffect(() => {
+    // Redirect authenticated users to dashboard
+    if (isSignedIn && loaded) {
+      navigate("/dashboard");
+    }
+  }, [isSignedIn, loaded, navigate]);
 
   if (!isReady) {
     return (
@@ -38,7 +48,6 @@ const SignUpPage = () => {
           </p>
         </div>
         <SignUp 
-          afterSignUpUrl="/dashboard"
           signInUrl="/auth"
           appearance={{
             elements: {

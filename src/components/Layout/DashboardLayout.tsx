@@ -1,21 +1,26 @@
 import { useEffect } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import EmailVerificationNotice from "../Auth/EmailVerificationNotice";
 import { useToast } from "@/hooks/use-toast";
 
 const DashboardLayout = () => {
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
+      // Store the intended destination for redirect after login
+      const destination = location.pathname + location.search;
+      sessionStorage.setItem('clerk_redirect_url', destination);
       navigate("/auth");
     }
-  }, [isLoaded, isSignedIn, navigate]);
+  }, [isLoaded, isSignedIn, navigate, location]);
 
   const handleLogout = async () => {
     try {
@@ -54,6 +59,7 @@ const DashboardLayout = () => {
       <Sidebar onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar user={user} onLogout={handleLogout} />
+        <EmailVerificationNotice />
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
