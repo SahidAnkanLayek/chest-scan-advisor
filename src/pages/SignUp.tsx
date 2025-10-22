@@ -1,7 +1,7 @@
-import { SignIn } from "@clerk/clerk-react";
+import { SignUp } from "@clerk/clerk-react";
 import { Activity } from "lucide-react";
 
-const Auth = () => {
+const SignUpPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
       <div className="w-full max-w-md">
@@ -16,15 +16,15 @@ const Auth = () => {
             Advanced chest X-ray analysis powered by AI
           </p>
         </div>
-        <SignIn 
+        <SignUp 
           routing="path" 
-          path="/auth"
-          signUpUrl="/sign-up"
-          afterSignInUrl="/dashboard"
+          path="/sign-up"
+          signInUrl="/auth"
+          afterSignUpUrl="/dashboard"
         />
       </div>
     </div>
   );
 };
 
-export default Auth;
+export default SignUpPage;

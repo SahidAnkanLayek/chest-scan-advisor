@@ -1,61 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import { useToast } from "@/hooks/use-toast";
 
 const DashboardLayout = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        navigate("/auth");
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-        navigate("/auth");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    if (isLoaded && !isSignedIn) {
+      navigate("/auth");
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
+    try {
+      await signOut();
       toast({
         title: "Success",
         description: "Logged out successfully",
       });
       navigate("/auth");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out",
+        variant: "destructive",
+      });
     }
   };
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -66,7 +45,7 @@ const DashboardLayout = () => {
     );
   }
 
-  if (!user) {
+  if (!isSignedIn || !user) {
     return null;
   }
 

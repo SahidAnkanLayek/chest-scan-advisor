@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js";
+import { UserResource } from "@clerk/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,17 +11,18 @@ import {
 import { LogOut, User as UserIcon } from "lucide-react";
 
 interface NavbarProps {
-  user: User;
+  user: UserResource;
   onLogout: () => void;
 }
 
 const Navbar = ({ user, onLogout }: NavbarProps) => {
-  const getInitials = (email: string) => {
+  const getInitials = () => {
+    const email = user.primaryEmailAddress?.emailAddress || "";
     return email.substring(0, 2).toUpperCase();
   };
 
   const getUserName = () => {
-    return user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+    return user.fullName || user.firstName || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "User";
   };
 
   return (
@@ -34,9 +35,9 @@ const Navbar = ({ user, onLogout }: NavbarProps) => {
       <DropdownMenu>
         <DropdownMenuTrigger className="focus:outline-none">
           <Avatar className="h-10 w-10 ring-2 ring-primary/20 hover:ring-primary/40 transition-all cursor-pointer">
-            <AvatarImage src={user.user_metadata?.avatar_url} alt={getUserName()} />
+            <AvatarImage src={user.imageUrl} alt={getUserName()} />
             <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-              {getInitials(user.email || "")}
+              {getInitials()}
             </AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
@@ -44,7 +45,9 @@ const Navbar = ({ user, onLogout }: NavbarProps) => {
           <DropdownMenuLabel>
             <div className="flex flex-col">
               <span className="font-semibold">{getUserName()}</span>
-              <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                {user.primaryEmailAddress?.emailAddress}
+              </span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
