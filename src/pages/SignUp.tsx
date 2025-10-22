@@ -17,10 +17,8 @@ const SignUpPage = () => {
           </p>
         </div>
         <SignUp 
-          routing="path" 
-          path="/sign-up"
-          signInUrl="/auth"
           afterSignUpUrl="/dashboard"
+          signInUrl="/auth"
         />
       </div>
     </div>

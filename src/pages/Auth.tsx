@@ -17,10 +17,8 @@ const Auth = () => {
           </p>
         </div>
         <SignIn 
-          routing="path" 
-          path="/auth"
-          signUpUrl="/sign-up"
           afterSignInUrl="/dashboard"
+          signUpUrl="/sign-up"
         />
       </div>
     </div>
