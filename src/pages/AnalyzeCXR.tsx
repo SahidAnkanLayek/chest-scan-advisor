@@ -51,9 +51,13 @@ const AnalyzeCXR = () => {
       });
     } catch (error) {
       console.error("Analysis failed:", error);
+      const errorMessage = error instanceof Error && error.message.includes("Failed to fetch")
+        ? "Cannot connect to AI backend. Please ensure the FastAPI server is running on http://localhost:8000"
+        : error instanceof Error ? error.message : "Unknown error occurred";
+      
       toast({
         title: "Analysis failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
