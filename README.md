@@ -1,6 +1,4 @@
-# Chest X-Ray AI Diagnosis System
-
-An AI-powered chest X-ray analysis system with real-time local predictions using DenseNet-121 and Grad-CAM explainability.
+# Welcome to your Lovable project
 
 ## Project info
 
@@ -56,108 +54,11 @@ npm run dev
 
 This project is built with:
 
-**Frontend:**
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
-- React Router
-- TanStack Query
-
-**Backend:**
-- FastAPI (Python)
-- PyTorch & torchvision
-- DenseNet-121 (ImageNet pretrained)
-- Grad-CAM (pytorch-grad-cam)
-- OpenCV & Pillow
-
-## Local Offline Setup (No Cloud Dependencies)
-
-This application runs completely locally with two services:
-
-```mermaid
-flowchart LR
-  A[Browser] --> B[Vite React App]
-  B -->|POST /predict| C[FastAPI Backend]
-  C --> D[PyTorch DenseNet-121]
-  D --> E[Grad-CAM]
-  C -->|JSON + heatmap base64| B
-```
-
-### Prerequisites
-
-- **Node.js** (v18+) and npm
-- **Python** (3.9+) and pip
-
-### Step 1: Setup Backend (Terminal A)
-
-```bash
-# Navigate to backend directory
-cd backend
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Start the FastAPI server
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-The backend will be available at `http://localhost:8000`
-
-### Step 2: Setup Frontend (Terminal B)
-
-```bash
-# Install Node dependencies
-npm install
-
-# Create local environment file
-cp .env.local.example .env.local
-# Edit .env.local and set VITE_API_BASE=http://localhost:8000
-
-# Start the development server
-npm run dev
-```
-
-The frontend will be available at `http://localhost:5173`
-
-### Step 3: Access the Application
-
-Open your browser and navigate to `http://localhost:5173`
-
-### Docker Setup (Alternative)
-
-If you prefer Docker:
-
-```bash
-# Build and run both services
-docker-compose up --build
-
-# Access the application at http://localhost:5173
-```
-
-## Features
-
-- **AI Diagnosis**: 14-class multi-label classification (NIH ChestX-ray14)
-- **Explainability**: Grad-CAM heatmap showing focus areas
-- **Real-time**: Local inference with no cloud dependencies
-- **User Management**: Authentication and session handling
-- **Reports**: Generate and view PDF diagnostic reports
-
-## API Documentation
-
-When the backend is running, visit:
-- Interactive API docs: `http://localhost:8000/docs`
-- Alternative docs: `http://localhost:8000/redoc`
-
-## Security Note
-
-⚠️ **Important**: Never commit `.env` or `.env.local` files to version control. Use `.env.local.example` as a template.
-
-If you've accidentally committed secrets:
-1. Rotate all API keys immediately
-2. Remove them from git history
-3. Update `.gitignore` to prevent future commits
 
 ## How can I deploy this project?
 
