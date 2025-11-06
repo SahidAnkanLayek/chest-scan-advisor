@@ -9,6 +9,7 @@ interface SidebarProps {
 const Sidebar = ({ onLogout }: SidebarProps) => {
   const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/analyze", icon: Activity, label: "Analyze X-Ray" },
     { to: "/reports", icon: FileText, label: "Reports" },
   ];
 
