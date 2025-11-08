@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const mockAIPrediction = () => {
 };
 
 const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUploadProps) => {
+  const { user } = useUser();
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -63,13 +65,10 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !user?.id) return;
 
     setUploading(true);
     setProgress(0);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
     // Simulate upload progress
     const progressInterval = setInterval(() => {

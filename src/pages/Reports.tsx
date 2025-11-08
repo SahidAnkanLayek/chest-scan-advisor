@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,17 +16,19 @@ interface Report {
 }
 
 const Reports = () => {
+  const { user } = useUser();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchReports();
-  }, []);
+    if (user?.id) {
+      fetchReports();
+    }
+  }, [user?.id]);
 
   const fetchReports = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user?.id) return;
 
     const { data, error } = await supabase
       .from("reports")

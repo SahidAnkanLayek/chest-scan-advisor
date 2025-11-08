@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PatientForm from "@/components/Dashboard/PatientForm";
@@ -29,28 +30,29 @@ interface DiagnosisResult {
 }
 
 const Dashboard = () => {
+  const { user } = useUser();
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [latestDiagnosis, setLatestDiagnosis] = useState<DiagnosisResult | null>(null);
-  const [stats, setStats] = useState({ totalDiagnoses: 0, totalReports: 0 });
+  const [totalDiagnoses, setTotalDiagnoses] = useState(0);
+  const [totalReports, setTotalReports] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPatientInfo();
-    fetchLatestDiagnosis();
-    fetchStats();
-  }, []);
+    if (user?.id) {
+      fetchPatientInfo();
+      fetchLatestDiagnosis();
+      fetchStats();
+    }
+  }, [user?.id]);
 
   const fetchPatientInfo = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user?.id) return;
 
     const { data, error } = await supabase
       .from("patient_info")
       .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setPatientInfo(data);
@@ -58,8 +60,7 @@ const Dashboard = () => {
   };
 
   const fetchLatestDiagnosis = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user?.id) return;
 
     const { data, error } = await supabase
       .from("diagnoses")
@@ -67,7 +68,7 @@ const Dashboard = () => {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setLatestDiagnosis(data);
@@ -75,8 +76,7 @@ const Dashboard = () => {
   };
 
   const fetchStats = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user?.id) return;
 
     const { count: diagnosesCount } = await supabase
       .from("diagnoses")
@@ -88,21 +88,23 @@ const Dashboard = () => {
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);
 
-    setStats({
-      totalDiagnoses: diagnosesCount || 0,
-      totalReports: reportsCount || 0,
-    });
+    setTotalDiagnoses(diagnosesCount || 0);
+    setTotalReports(reportsCount || 0);
   };
 
-  const handlePatientSubmit = async (data: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const handlePatientSubmit = async (data: PatientInfo) => {
+    if (!user?.id) return;
 
-    const { data: newPatient, error } = await supabase
-      .from("patient_info")
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single();
+    const { error } = await supabase.from("patient_info").insert({
+      user_id: user.id,
+      full_name: data.full_name,
+      age: data.age,
+      sex: data.sex,
+      contact_number: data.contact_number,
+      address: data.address,
+      weight: data.weight,
+      height: data.height,
+    });
 
     if (error) {
       toast({
@@ -111,7 +113,7 @@ const Dashboard = () => {
         variant: "destructive",
       });
     } else {
-      setPatientInfo(newPatient);
+      await fetchPatientInfo();
       toast({
         title: "Success",
         description: "Patient information saved successfully!",
@@ -144,7 +146,7 @@ const Dashboard = () => {
             <Activity className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalDiagnoses}</div>
+            <div className="text-2xl font-bold">{totalDiagnoses}</div>
             <p className="text-xs text-muted-foreground">X-ray scans analyzed</p>
           </CardContent>
         </Card>
@@ -155,7 +157,7 @@ const Dashboard = () => {
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalReports}</div>
+            <div className="text-2xl font-bold">{totalReports}</div>
             <p className="text-xs text-muted-foreground">Medical reports saved</p>
           </CardContent>
         </Card>
