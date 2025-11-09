@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Verify from "./pages/Verify";
 import Dashboard from "./pages/Dashboard";
 import AnalyzeCXR from "./pages/AnalyzeCXR";
 import Reports from "./pages/Reports";
@@ -61,6 +62,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/verify" element={<Verify />} />
           <Route
             element={
               <ProtectedRoute>
