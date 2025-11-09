@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Activity } from "lucide-react";
+import { Activity, Mail } from "lucide-react";
+import { z } from "zod";
+
+const emailSchema = z.string().email("Please enter a valid email address").min(1, "Email is required");
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -26,10 +29,32 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate email format
+    const emailValidation = emailSchema.safeParse(email);
+    if (!emailValidation.success) {
+      toast({
+        title: "Invalid Email",
+        description: emailValidation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check password length
+    if (password.length < 6) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
@@ -46,18 +71,31 @@ const Auth = () => {
       });
     } else {
       toast({
-        title: "Success",
-        description: "Account created! Please check your email to verify.",
+        title: "Check Your Email!",
+        description: "We've sent a verification link to your email. Please check your inbox (and spam folder).",
+        duration: 8000,
       });
     }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate email format
+    const emailValidation = emailSchema.safeParse(email);
+    if (!emailValidation.success) {
+      toast({
+        title: "Invalid Email",
+        description: emailValidation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
 
@@ -136,6 +174,9 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Please use a valid email address to receive verification
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
@@ -147,10 +188,19 @@ const Auth = () => {
                     required
                     minLength={6}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum 6 characters
+                  </p>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating account..." : "Sign Up"}
                 </Button>
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    Check your spam folder if you don't see the verification email
+                  </p>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
