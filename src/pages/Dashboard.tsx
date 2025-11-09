@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PatientForm from "@/components/Dashboard/PatientForm";
@@ -30,7 +29,7 @@ interface DiagnosisResult {
 }
 
 const Dashboard = () => {
-  const { user } = useUser();
+  const [userId, setUserId] = useState<string | null>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [latestDiagnosis, setLatestDiagnosis] = useState<DiagnosisResult | null>(null);
   const [totalDiagnoses, setTotalDiagnoses] = useState(0);
@@ -38,20 +37,36 @@ const Dashboard = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user?.id) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
       fetchPatientInfo();
       fetchLatestDiagnosis();
       fetchStats();
     }
-  }, [user?.id]);
+  }, [userId]);
 
   const fetchPatientInfo = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("patient_info")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (data) {
@@ -60,12 +75,12 @@ const Dashboard = () => {
   };
 
   const fetchLatestDiagnosis = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("diagnoses")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -76,27 +91,27 @@ const Dashboard = () => {
   };
 
   const fetchStats = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const { count: diagnosesCount } = await supabase
       .from("diagnoses")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     const { count: reportsCount } = await supabase
       .from("reports")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     setTotalDiagnoses(diagnosesCount || 0);
     setTotalReports(reportsCount || 0);
   };
 
   const handlePatientSubmit = async (data: PatientInfo) => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const { error } = await supabase.from("patient_info").insert({
-      user_id: user.id,
+      user_id: userId,
       full_name: data.full_name,
       age: data.age,
       sex: data.sex,

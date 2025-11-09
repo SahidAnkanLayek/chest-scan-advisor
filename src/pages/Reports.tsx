@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,24 +15,40 @@ interface Report {
 }
 
 const Reports = () => {
-  const { user } = useUser();
+  const [userId, setUserId] = useState<string | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user?.id) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
       fetchReports();
     }
-  }, [user?.id]);
+  }, [userId]);
 
   const fetchReports = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("reports")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) {

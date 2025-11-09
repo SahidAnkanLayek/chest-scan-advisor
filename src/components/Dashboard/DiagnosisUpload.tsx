@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ const mockAIPrediction = () => {
 };
 
 const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUploadProps) => {
-  const { user } = useUser();
+  const [userId, setUserId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -43,6 +42,22 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
   const [preview, setPreview] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,7 +80,7 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !user?.id) return;
+    if (!selectedFile || !userId) return;
 
     setUploading(true);
     setProgress(0);
@@ -82,7 +97,7 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
     }, 200);
 
     // Upload to storage
-    const fileName = `${user.id}/${Date.now()}_${selectedFile.name}`;
+    const fileName = `${userId}/${Date.now()}_${selectedFile.name}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("xray-images")
       .upload(fileName, selectedFile);
@@ -117,7 +132,7 @@ const DiagnosisUpload = ({ patientInfoId, onDiagnosisComplete }: DiagnosisUpload
     const { data: diagnosisData, error: diagnosisError } = await supabase
       .from("diagnoses")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         patient_info_id: patientInfoId,
         image_url: publicUrl,
         predictions: aiResult.predictions,
