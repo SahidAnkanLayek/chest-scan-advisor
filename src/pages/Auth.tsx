@@ -66,10 +66,18 @@ const Auth = () => {
     setLoading(false);
 
     if (error) {
+      // Check for network/connectivity errors
+      const isNetworkError = error.message?.toLowerCase().includes('fetch') || 
+                            error.message?.toLowerCase().includes('network') ||
+                            error.message?.toLowerCase().includes('timeout');
+      
       toast({
-        title: "Error",
-        description: error.message,
+        title: isNetworkError ? "Connection Error" : "Error",
+        description: isNetworkError 
+          ? "Unable to connect to the authentication service. Please check your internet connection and try again in a few moments."
+          : error.message,
         variant: "destructive",
+        duration: 8000,
       });
     } else {
       // Store email in sessionStorage for verification page
