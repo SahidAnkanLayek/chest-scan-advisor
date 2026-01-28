@@ -3,7 +3,7 @@ import { LayoutDashboard, FileText, LogOut, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 const Sidebar = ({ onLogout }: SidebarProps) => {
@@ -46,16 +46,18 @@ const Sidebar = ({ onLogout }: SidebarProps) => {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
-        <Button
-          onClick={onLogout}
-          variant="ghost"
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <LogOut className="h-5 w-5 mr-3" />
-          Logout
-        </Button>
-      </div>
+      {onLogout && (
+        <div className="p-4 border-t border-sidebar-border">
+          <Button
+            onClick={onLogout}
+            variant="ghost"
+            className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <LogOut className="h-5 w-5 mr-3" />
+            Logout
+          </Button>
+        </div>
+      )}
     </aside>
   );
 };
